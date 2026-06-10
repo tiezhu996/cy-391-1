@@ -19,3 +19,18 @@ export interface Badge {
   condition: string;
   unlocked: boolean;
 }
+
+export type WeeklyGoals = Record<CarbonCategory, number>;
+
+export interface WeeklyProgress {
+  category: CarbonCategory;
+  actual: number;
+  goal: number;
+  percentage: number;
+  status: "safe" | "warning" | "danger";
+}
+
+export interface ConsecutiveWeeks {
+  category: CarbonCategory;
+  count: number;
+}
