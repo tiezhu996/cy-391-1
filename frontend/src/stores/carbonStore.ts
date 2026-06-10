@@ -14,42 +14,55 @@ interface CarbonState {
   records: CarbonRecord[];
   badges: Badge[];
   weeklyGoals: WeeklyGoals;
+  newlyUnlockedBadges: Badge[];
   hydrate: () => Promise<void>;
   addRecord: (record: CarbonRecord) => void;
   replaceRecords: (records: CarbonRecord[]) => void;
   setWeeklyGoal: (category: CarbonCategory, value: number) => void;
   resetWeeklyGoals: () => void;
+  clearNewlyUnlocked: () => void;
 }
 
 export const useCarbonStore = create<CarbonState>((set, get) => ({
   records: [],
   badges: BADGES.map((b) => ({ ...b, unlocked: false })),
   weeklyGoals: DEFAULT_WEEKLY_GOALS,
+  newlyUnlockedBadges: [],
   hydrate: async () => {
     const [records, storedGoals] = await Promise.all([loadRecords(), loadWeeklyGoals()]);
     const goals = storedGoals ?? DEFAULT_WEEKLY_GOALS;
-    set({ records, weeklyGoals: goals, badges: unlockBadges(records, goals) });
+    set({ records, weeklyGoals: goals, badges: unlockBadges(records, goals), newlyUnlockedBadges: [] });
   },
   addRecord: (record) => {
+    const prevBadges = get().badges;
     const records = [record, ...get().records];
     const goals = get().weeklyGoals;
+    const nextBadges = unlockBadges(records, goals);
+    const newly = nextBadges.filter((b) => b.unlocked && !prevBadges.find((p) => p.id === b.id)?.unlocked);
     saveRecords(records);
-    set({ records, badges: unlockBadges(records, goals) });
+    set({ records, badges: nextBadges, newlyUnlockedBadges: newly });
   },
   replaceRecords: (records) => {
+    const prevBadges = get().badges;
     const goals = get().weeklyGoals;
+    const nextBadges = unlockBadges(records, goals);
+    const newly = nextBadges.filter((b) => b.unlocked && !prevBadges.find((p) => p.id === b.id)?.unlocked);
     saveRecords(records);
-    set({ records, badges: unlockBadges(records, goals) });
+    set({ records, badges: nextBadges, newlyUnlockedBadges: newly });
   },
   setWeeklyGoal: (category, value) => {
+    const prevBadges = get().badges;
     const goals = { ...get().weeklyGoals, [category]: value };
+    const nextBadges = unlockBadges(get().records, goals);
+    const newly = nextBadges.filter((b) => b.unlocked && !prevBadges.find((p) => p.id === b.id)?.unlocked);
     saveWeeklyGoals(goals);
-    set({ weeklyGoals: goals, badges: unlockBadges(get().records, goals) });
+    set({ weeklyGoals: goals, badges: nextBadges, newlyUnlockedBadges: newly });
   },
   resetWeeklyGoals: () => {
     saveWeeklyGoals(DEFAULT_WEEKLY_GOALS);
-    set({ weeklyGoals: DEFAULT_WEEKLY_GOALS, badges: unlockBadges(get().records, DEFAULT_WEEKLY_GOALS) });
-  }
+    set({ weeklyGoals: DEFAULT_WEEKLY_GOALS, badges: unlockBadges(get().records, DEFAULT_WEEKLY_GOALS), newlyUnlockedBadges: [] });
+  },
+  clearNewlyUnlocked: () => set({ newlyUnlockedBadges: [] })
 }));
 
 function unlockBadges(records: CarbonRecord[], goals: WeeklyGoals): Badge[] {
